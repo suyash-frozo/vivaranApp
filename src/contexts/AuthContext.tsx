@@ -1,10 +1,25 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  updateProfile,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
+  ConfirmationResult,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { auth } from '../services/firebase';
 import { User } from '../types';
 
 interface AuthContextType {
   currentUser: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
+  loginWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
+  verifyPhoneCode: (confirmationResult: ConfirmationResult, code: string) => Promise<void>;
+  setupRecaptcha: (elementId: string) => RecaptchaVerifier;
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -21,47 +36,66 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const signup = async (email: string, password: string, name: string) => {
-    // Mock signup - create a demo user
-    const mockUser: User = {
-      id: 'demo-user-' + Date.now(),
-      email,
-      name,
-    };
-    setCurrentUser(mockUser);
-    localStorage.setItem('demoUser', JSON.stringify(mockUser));
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(userCredential.user, { displayName: name });
   };
 
   const login = async (email: string, password: string) => {
-    // Mock login - create a demo user
-    const mockUser: User = {
-      id: 'demo-user-' + Date.now(),
-      email,
-      name: email.split('@')[0],
-    };
-    setCurrentUser(mockUser);
-    localStorage.setItem('demoUser', JSON.stringify(mockUser));
+    await signInWithEmailAndPassword(auth, email, password);
   };
 
   const logout = async () => {
-    setCurrentUser(null);
-    localStorage.removeItem('demoUser');
+    await signOut(auth);
+  };
+
+  const setupRecaptcha = (elementId: string) => {
+    const recaptcha = new RecaptchaVerifier(auth, elementId, {
+      size: 'invisible',
+      callback: () => {
+        // reCAPTCHA solved
+      }
+    });
+    return recaptcha;
+  };
+
+  const loginWithPhone = async (phoneNumber: string) => {
+    const recaptcha = setupRecaptcha('recaptcha-container');
+    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptcha);
+    return confirmationResult;
+  };
+
+  const verifyPhoneCode = async (confirmationResult: ConfirmationResult, code: string) => {
+    await confirmationResult.confirm(code);
   };
 
   useEffect(() => {
-    // Check for existing demo user in localStorage
-    const savedUser = localStorage.getItem('demoUser');
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
-    }
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        const user: User = {
+          id: firebaseUser.uid,
+          email: firebaseUser.email || '',
+          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+        };
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+      }
+      setLoading(false);
+    });
+
+    return unsubscribe;
   }, []);
 
   const value = {
     currentUser,
     login,
     signup,
+    loginWithPhone,
+    verifyPhoneCode,
+    setupRecaptcha,
     logout,
     loading,
   };
