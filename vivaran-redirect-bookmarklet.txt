@@ -1,0 +1,13 @@
+VIVARAN REDIRECT BOOKMARKLET
+
+Copy this entire code and create a bookmark with it as the URL:
+
+javascript:(function(){if(window.location.href.includes('auth-success.html')||window.location.href.includes('endearing-prosperity-production')){window.location.href='http://localhost:3000/dashboard';}else{alert('Not on auth-success page');}})();
+
+INSTRUCTIONS:
+1. Copy the javascript code above
+2. Create a new bookmark in your browser
+3. Set the URL to the javascript code
+4. Name it "Vivaran Dashboard"
+5. When stuck on auth-success page, click this bookmark
+6. You'll be redirected to dashboard automatically

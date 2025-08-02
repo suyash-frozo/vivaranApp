@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting to Dashboard - Vivaran</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: white;
+        }
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            max-width: 400px;
+        }
+        .logo {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #3b82f6, #14b8a6);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+            font-weight: bold;
+            color: white;
+        }
+        .checkmark {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #10b981;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            animation: checkmark 0.6s ease-in-out;
+        }
+        .checkmark svg {
+            width: 30px;
+            height: 30px;
+            stroke: white;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+        }
+        @keyframes checkmark {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        h1 {
+            margin: 20px 0 10px;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        p {
+            margin: 10px 0 30px;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .manual-link {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            border-radius: 8px;
+        }
+        .manual-link a {
+            color: #60a5fa;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .manual-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">V</div>
+        <div class="checkmark">
+            <svg viewBox="0 0 24 24">
+                <polyline points="20,6 9,17 4,12"></polyline>
+            </svg>
+        </div>
+        <h1>Login Successful!</h1>
+        <p id="status">Redirecting to your dashboard...</p>
+        <div class="spinner" id="spinner"></div>
+        
+        <div class="manual-link">
+            <p>Taking too long?</p>
+            <a href="#" id="dashboardLink">Click here to go to Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        // Redirect to frontend auth-success page for proper handling
+        function redirectToAuthSuccess() {
+            // Dynamically determine frontend URL based on current domain
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const frontendUrl = isLocalhost ? 'http://localhost:3000' : window.location.origin;
+            
+            // Update manual link to dashboard
+            document.getElementById('dashboardLink').href = `${frontendUrl}/dashboard`;
+            
+            // Redirect to React auth success page which will handle the API response
+            window.location.href = `${frontendUrl}/auth-success`;
+        }
+
+        // Start redirect immediately
+        redirectToAuthSuccess();
+    </script>
+</body>
+</html>

@@ -2,6 +2,11 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  role?: string;
+  permissions?: string[];
+  provider?: string;
+  created_at?: string;
+  last_login?: string;
   photoURL?: string;
 }
 
@@ -43,8 +48,16 @@ export interface VivaranAPIRequest {
 }
 
 export interface VivaranAPIResponse {
-  verdict: string;
-  total_overcharge: number;
-  confidence_score: number;
-  analysis_details: any;
+  verdict?: string;
+  total_overcharge?: number;
+  confidence_score?: number;
+  analysis_details?: any;
+  final_result?: {
+    verdict: string;
+    total_overcharge: number;
+    confidence_score: number;
+    analysis_details?: any;
+  };
+  success?: boolean;
+  doc_id?: string;
 }

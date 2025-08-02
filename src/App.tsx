@@ -5,6 +5,8 @@ import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { UploadPage } from './pages/UploadPage';
+import { AuthSuccessPage } from './pages/AuthSuccessPage';
+import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { AuthProvider } from './contexts/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -18,6 +20,8 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/auth-success" element={<AuthSuccessPage />} />
+            <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
             <Route
               path="/dashboard"
               element={

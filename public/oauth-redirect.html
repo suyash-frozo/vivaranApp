@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth Redirect Helper</title>
+    <script>
+        // This page can be opened in a new tab to check for OAuth completion
+        function checkOAuthAndRedirect() {
+            // Check if we have pending OAuth
+            const pendingLogin = localStorage.getItem('vivaran-oauth-login');
+            
+            if (pendingLogin === 'true') {
+                // Check if authentication is successful
+                fetch('https://endearing-prosperity-production.up.railway.app/auth/supabase/user', {
+                    credentials: 'include'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success === true) {
+                        // Clear flags
+                        localStorage.removeItem('vivaran-oauth-login');
+                        localStorage.removeItem('vivaran-login-timestamp');
+                        
+                        // Redirect to dashboard
+                        window.location.href = 'http://localhost:3000/dashboard';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking auth:', error);
+                });
+            }
+        }
+        
+        // Check when page loads
+        window.onload = checkOAuthAndRedirect;
+        
+        // Check every 2 seconds
+        setInterval(checkOAuthAndRedirect, 2000);
+    </script>
+</head>
+<body>
+    <h1>Checking OAuth status...</h1>
+    <p>This page will automatically redirect you to the dashboard once login is complete.</p>
+</body>
+</html>

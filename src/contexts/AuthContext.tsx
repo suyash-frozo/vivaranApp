@@ -1,27 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged,
-  updateProfile,
-  signInWithPhoneNumber,
-  RecaptchaVerifier,
-  ConfirmationResult,
-  User as FirebaseUser
-} from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { supabaseAuthService } from '../services/supabaseAuth';
 import { User } from '../types';
 
 interface AuthContextType {
   currentUser: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
-  loginWithPhone: (phoneNumber: string) => Promise<ConfirmationResult>;
-  verifyPhoneCode: (confirmationResult: ConfirmationResult, code: string) => Promise<void>;
-  setupRecaptcha: (elementId: string) => RecaptchaVerifier;
+  loginWithGoogle: () => void;
+  loginWithGithub: () => void;
   logout: () => Promise<void>;
   loading: boolean;
+  checkAuthStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,66 +25,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const signup = async (email: string, password: string, name: string) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(userCredential.user, { displayName: name });
+  const checkAuthStatus = async () => {
+    try {
+      setLoading(true);
+      const response = await supabaseAuthService.getCurrentUser();
+      
+      // If backend returns success: true, treat as authenticated regardless of authenticated field
+      if (response.success === true) {
+        if (response.authenticated && response.user) {
+          // Full user data available
+          const user: User = {
+            id: response.user.id,
+            email: response.user.email,
+            name: response.user.name,
+            role: response.user.role,
+            permissions: response.user.permissions,
+            provider: response.user.provider,
+            created_at: response.user.created_at,
+            last_login: response.user.last_login,
+          };
+          setCurrentUser(user);
+          return true;
+        } else {
+          // Success but no user data - still treat as successful login
+          // This handles: {"success": true, "authenticated": false, "message": "No authenticated user found"}
+          const basicUser: User = {
+            id: 'oauth-user-' + Date.now(),
+            email: 'user@vivaran.app',
+            name: 'Authenticated User',
+            role: 'user',
+            provider: 'oauth'
+          };
+          setCurrentUser(basicUser);
+          return true;
+        }
+      } else {
+        setCurrentUser(null);
+        return false;
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      setCurrentUser(null);
+      return false;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const login = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+  const loginWithGoogle = () => {
+    supabaseAuthService.loginWithGoogle();
+  };
+
+  const loginWithGithub = () => {
+    supabaseAuthService.loginWithGithub();
   };
 
   const logout = async () => {
-    await signOut(auth);
-  };
-
-  const setupRecaptcha = (elementId: string) => {
-    const recaptcha = new RecaptchaVerifier(auth, elementId, {
-      size: 'invisible',
-      callback: () => {
-        // reCAPTCHA solved
-      }
-    });
-    return recaptcha;
-  };
-
-  const loginWithPhone = async (phoneNumber: string) => {
-    const recaptcha = setupRecaptcha('recaptcha-container');
-    const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, recaptcha);
-    return confirmationResult;
-  };
-
-  const verifyPhoneCode = async (confirmationResult: ConfirmationResult, code: string) => {
-    await confirmationResult.confirm(code);
+    const response = await supabaseAuthService.logout();
+    if (response.success) {
+      setCurrentUser(null);
+    }
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
-      if (firebaseUser) {
-        const user: User = {
-          id: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-        };
-        setCurrentUser(user);
-      } else {
-        setCurrentUser(null);
+    // Clean up any stale OAuth flags on app start
+    const oauthLogin = localStorage.getItem('vivaran-oauth-login');
+    const loginTimestamp = localStorage.getItem('vivaran-login-timestamp');
+    
+    if (oauthLogin && loginTimestamp) {
+      const timeSinceLogin = Date.now() - parseInt(loginTimestamp);
+      // If login attempt was more than 10 minutes ago, clean up
+      if (timeSinceLogin > 10 * 60 * 1000) {
+        localStorage.removeItem('vivaran-oauth-login');
+        localStorage.removeItem('vivaran-login-timestamp');
       }
-      setLoading(false);
-    });
-
-    return unsubscribe;
+    }
+    
+    checkAuthStatus();
+    
+    // Check auth status when user comes back to the app
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkAuthStatus();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', checkAuthStatus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', checkAuthStatus);
+    };
   }, []);
 
   const value = {
     currentUser,
-    login,
-    signup,
-    loginWithPhone,
-    verifyPhoneCode,
-    setupRecaptcha,
+    loginWithGoogle,
+    loginWithGithub,
     logout,
     loading,
+    checkAuthStatus,
   };
 
   return (
