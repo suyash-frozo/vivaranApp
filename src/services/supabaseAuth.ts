@@ -32,6 +32,9 @@ export const supabaseAuthService = {
       const response = await fetch(`${API_BASE}/auth/supabase/user`, {
         method: 'GET',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
@@ -55,6 +58,9 @@ export const supabaseAuthService = {
       const response = await fetch(`${API_BASE}/auth/supabase/logout`, {
         method: 'POST',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {

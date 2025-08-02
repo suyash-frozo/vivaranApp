@@ -3,194 +3,169 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export const AuthSuccessPage: React.FC = () => {
-  const [status, setStatus] = useState('Verifying authentication...');
+  const [status, setStatus] = useState('Completing authentication...');
   const [error, setError] = useState(false);
-  const { checkAuthStatus, currentUser, loading } = useAuth();
+  const [retryCount, setRetryCount] = useState(0);
+  const { checkAuthStatus } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const handleAuthSuccess = async () => {
-      try {
-        setStatus('Verifying authentication...');
-        
-        // Wait a moment for cookies to be set
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Check the backend response
-        const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://endearing-prosperity-production.up.railway.app';
-        const response = await fetch(`${API_BASE}/auth/supabase/user`, {
-          credentials: 'include'
-        });
-        
-        const data = await response.json();
-        
-        // If we get success: true, redirect to dashboard regardless of authenticated status
-        if (data.success === true) {
-          setStatus('Login successful! Redirecting to dashboard...');
-          
-          // Also update auth context
-          await checkAuthStatus();
-          
-          // Redirect to dashboard
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 1000);
-        } else {
-          // If not successful, redirect to login
-          setError(true);
-          setStatus('Authentication failed. Redirecting to login...');
-          setTimeout(() => {
-            navigate('/login');
-          }, 2000);
-        }
-        
-      } catch (err) {
-        console.error('Error verifying authentication:', err);
-        setError(true);
-        setStatus('Unable to verify authentication.');
-        setTimeout(() => {
-          navigate('/login');
-        }, 3000);
+  const verifyAuthentication = async (attempt = 1) => {
+    try {
+      setError(false);
+      setStatus(`Verifying authentication... (${attempt}/3)`);
+      
+      // Wait for cookies to be properly set
+      const waitTime = attempt === 1 ? 2000 : 1000;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      
+      // Call backend to verify authentication
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://endearing-prosperity-production.up.railway.app';
+      const response = await fetch(`${API_BASE}/auth/supabase/user`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    };
-
-    handleAuthSuccess();
-  }, [checkAuthStatus, navigate]);
-
-  // If user is already loaded and authenticated, redirect immediately
-  useEffect(() => {
-    if (!loading && currentUser) {
-      navigate('/dashboard');
-    } else if (!loading && !currentUser) {
-      // If not authenticated after loading, redirect to login
-      setTimeout(() => {
-        navigate('/login');
-      }, 3000);
+      
+      const data = await response.json();
+      console.log('Auth verification response:', data);
+      
+      // Check if authentication was successful
+      if (data.success === true) {
+        setStatus('Authentication successful! Redirecting to dashboard...');
+        
+        // Update auth context with the verified user
+        await checkAuthStatus();
+        
+        // Redirect to dashboard
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 1000);
+        
+        return true;
+      } else {
+        throw new Error(data.message || 'Authentication verification failed');
+      }
+      
+    } catch (err) {
+      console.error(`Auth verification attempt ${attempt} failed:`, err);
+      
+      if (attempt < 3) {
+        // Retry up to 3 times
+        setStatus(`Authentication check failed. Retrying... (${attempt + 1}/3)`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return verifyAuthentication(attempt + 1);
+      } else {
+        // All retries failed
+        setError(true);
+        setStatus('Authentication verification failed. Please try again.');
+        setRetryCount(prev => prev + 1);
+        return false;
+      }
     }
-  }, [currentUser, loading, navigate]);
+  };
+
+  const handleRetry = () => {
+    setError(false);
+    setRetryCount(0);
+    verifyAuthentication(1);
+  };
+
+  const handleGoToLogin = () => {
+    navigate('/login', { replace: true });
+  };
+
+  useEffect(() => {
+    // Start authentication verification when component mounts
+    verifyAuthentication(1);
+  }, []);
 
   return (
-    <div style={{
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      margin: 0,
-      color: 'white'
-    }}>
-      <div style={{
-        textAlign: 'center',
-        background: 'rgba(255, 255, 255, 0.1)',
-        backdropFilter: 'blur(10px)',
-        borderRadius: '20px',
-        padding: '40px',
-        boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        border: '1px solid rgba(255, 255, 255, 0.18)',
-        maxWidth: '400px',
-        width: '90%'
-      }}>
-        <div style={{
-          width: '64px',
-          height: '64px',
-          background: 'linear-gradient(135deg, #3b82f6, #14b8a6)',
-          borderRadius: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 20px',
-          fontSize: '32px',
-          fontWeight: 'bold',
-          color: 'white'
-        }}>
-          V
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 max-w-md w-full border border-white/20 shadow-2xl">
+        {/* Logo */}
+        <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-teal-500 rounded-xl flex items-center justify-center mx-auto mb-6">
+          <span className="text-2xl font-bold text-white">V</span>
         </div>
         
-        {!error && (
-          <div style={{
-            width: '60px',
-            height: '60px',
-            borderRadius: '50%',
-            background: '#10b981',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 20px',
-            animation: 'checkmark 0.6s ease-in-out'
-          }}>
-            <svg width="30" height="30" viewBox="0 0 24 24" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none">
-              <polyline points="20,6 9,17 4,12"></polyline>
-            </svg>
-          </div>
-        )}
+        {/* Status Icon */}
+        <div className="flex justify-center mb-6">
+          {error ? (
+            <div className="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+          ) : (
+            <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center animate-pulse">
+              <svg className="w-8 h-8 text-white animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+          )}
+        </div>
         
-        <h1 style={{
-          margin: '20px 0 10px',
-          fontSize: '28px',
-          fontWeight: '600'
-        }}>
-          {error ? 'Authentication Error' : 'Authentication Successful!'}
+        {/* Title */}
+        <h1 className="text-2xl font-semibold text-white text-center mb-4">
+          {error ? 'Authentication Failed' : 'Completing Authentication'}
         </h1>
         
-        <p style={{
-          margin: '10px 0 30px',
-          opacity: 0.9,
-          fontSize: '16px'
-        }}>
+        {/* Status Message */}
+        <p className="text-white/80 text-center mb-6 text-sm leading-relaxed">
           {status}
         </p>
         
+        {/* Loading Indicator */}
         {!error && (
-          <div style={{
-            width: '24px',
-            height: '24px',
-            border: '3px solid rgba(255, 255, 255, 0.3)',
-            borderTop: '3px solid white',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto'
-          }}></div>
+          <div className="flex justify-center mb-6">
+            <div className="flex space-x-1">
+              <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+              <div className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+            </div>
+          </div>
         )}
         
+        {/* Error Actions */}
         {error && (
-          <div style={{
-            color: '#ef4444',
-            background: 'rgba(239, 68, 68, 0.1)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '8px',
-            padding: '15px',
-            marginTop: '20px'
-          }}>
+          <div className="space-y-3">
             <button 
-              onClick={() => navigate('/dashboard')}
-              style={{
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                textDecoration: 'none'
-              }}
+              onClick={handleRetry}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-transparent"
             >
-              Continue to Dashboard
+              Retry Authentication
             </button>
+            <button 
+              onClick={handleGoToLogin}
+              className="w-full bg-white/20 hover:bg-white/30 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-transparent"
+            >
+              Back to Login
+            </button>
+            
+            {retryCount > 2 && (
+              <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+                <p className="text-red-200 text-sm text-center">
+                  Having trouble? Try logging in again or contact support.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Success Indicator */}
+        {status.includes('successful') && (
+          <div className="mt-4 p-3 bg-green-500/20 border border-green-500/30 rounded-lg">
+            <p className="text-green-200 text-sm text-center">
+              ✓ Authentication verified successfully
+            </p>
           </div>
         )}
       </div>
-      
-      <style>{`
-        @keyframes checkmark {
-          0% { transform: scale(0); }
-          50% { transform: scale(1.2); }
-          100% { transform: scale(1); }
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };
