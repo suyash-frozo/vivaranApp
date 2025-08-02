@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Github } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   
   const { currentUser, loginWithGoogle, loginWithGithub, checkAuthStatus } = useAuth();
   const navigate = useNavigate();
@@ -22,6 +22,7 @@ export const LoginPage: React.FC = () => {
 
   const handleGoogleLogin = () => {
     try {
+      setLoading(true);
       // Store that we're attempting OAuth login
       localStorage.setItem('vivaran-oauth-login', 'true');
       localStorage.setItem('vivaran-login-timestamp', Date.now().toString());
@@ -33,12 +34,14 @@ export const LoginPage: React.FC = () => {
       
     } catch (err) {
       setError('Failed to initiate Google login');
+      setLoading(false);
       console.error('OAuth initiation error:', err);
     }
   };
 
   const handleGithubLogin = () => {
     try {
+      setLoading(true);
       // Store that we're attempting OAuth login
       localStorage.setItem('vivaran-oauth-login', 'true');
       localStorage.setItem('vivaran-login-timestamp', Date.now().toString());
@@ -50,6 +53,7 @@ export const LoginPage: React.FC = () => {
       
     } catch (err) {
       setError('Failed to initiate GitHub login');
+      setLoading(false);
       console.error('OAuth initiation error:', err);
     }
   };

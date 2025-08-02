@@ -196,13 +196,13 @@ export const UploadPage: React.FC = () => {
         
         if (lineItems && lineItems.length > 0) {
           responseContent += `\n\n**Line Items:**`;
-          lineItems.forEach((item, index) => {
+          lineItems.forEach((item: any, index: number) => {
             responseContent += `\n${index + 1}. ${item.description} - ₹${item.amount} (Qty: ${item.quantity})${item.is_suspicious ? ' ⚠️ Suspicious' : ''}`;
           });
         }
         
         if (recommendations.length > 0) {
-          responseContent += `\n\n**Recommendations:**\n${recommendations.map(rec => `• ${rec}`).join('\n')}`;
+          responseContent += `\n\n**Recommendations:**\n${recommendations.map((rec: any) => `• ${rec}`).join('\n')}`;
         }
         
         if (aiNotes) {

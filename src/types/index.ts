@@ -57,7 +57,11 @@ export interface VivaranAPIResponse {
     total_overcharge: number;
     confidence_score: number;
     analysis_details?: any;
+    domain_analysis?: any;
   };
   success?: boolean;
   doc_id?: string;
+  processing_stages?: any;
+  domain_analysis?: any;
+  query_response?: any;
 }

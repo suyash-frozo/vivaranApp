@@ -8,7 +8,7 @@ interface AuthContextType {
   loginWithGithub: () => void;
   logout: () => Promise<void>;
   loading: boolean;
-  checkAuthStatus: () => Promise<void>;
+  checkAuthStatus: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
