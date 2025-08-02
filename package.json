@@ -19,7 +19,7 @@
     "url": "https://github.com/suyash-frozo/vivaranApp/issues"
   },
   "homepage": "https://github.com/suyash-frozo/vivaranApp#readme",
-  "description": "",
+  "description": "Vivaran medical bill analysis app",
   "dependencies": {
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
