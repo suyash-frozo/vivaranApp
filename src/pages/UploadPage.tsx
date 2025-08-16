@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   Send, 
   Paperclip, 
@@ -8,9 +8,12 @@ import {
   Loader2,
   Settings,
   Bot,
-  User
+  User,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { validateFile, convertToBase64, getFileFormat, generateDocId } from '../utils/fileUtils';
 import { analyzeMedicalBillEnhanced } from '../services/vivaranApi';
 
@@ -31,11 +34,14 @@ interface Message {
 
 export const UploadPage: React.FC = () => {
   const { currentUser } = useAuth();
+  const { t, language } = useLanguage();
   
   const [messages, setMessages] = useState<Message[]>([{
     id: '1',
     type: 'bot',
-    content: 'Hello! I\'m here to help you analyze your medical bills. You can upload a file and ask me questions about it, or just start a conversation about medical billing.',
+    content: language === 'hi' 
+      ? 'नमस्ते! मैं आपके मेडिकल बिल्स का विश्लेषण करने में आपकी मदद करने के लिए यहां हूं। आप एक फाइल अपलोड कर सकते हैं और मुझसे इसके बारे में सवाल पूछ सकते हैं, या बस मेडिकल बिलिंग के बारे में बातचीत शुरू कर सकते हैं।'
+      : 'Hello! I\'m here to help you analyze your medical bills. You can upload a file and ask me questions about it, or just start a conversation about medical billing.',
     timestamp: new Date()
   }]);
   const [inputText, setInputText] = useState('');
@@ -46,8 +52,11 @@ export const UploadPage: React.FC = () => {
     stateCode: 'DL',
     insuranceType: 'cghs'
   });
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,8 +66,82 @@ export const UploadPage: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
+  React.useEffect(() => {
+    // Check if speech recognition is supported
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setSpeechSupported(true);
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = language === 'hi' ? 'hi-IN' : 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInputText(prev => prev + ' ' + transcript);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  React.useEffect(() => {
+    // Update speech recognition language when settings change
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = language === 'hi' ? 'hi-IN' : 'en-US';
+    }
+  }, [language]);
+
+  React.useEffect(() => {
+    console.log('Selected file changed:', selectedFile);
+  }, [selectedFile]);
+
+  React.useEffect(() => {
+    console.log('File input ref update:', fileInputRef.current);
+  }, [fileInputRef.current]);
+
+  React.useEffect(() => {
+    // Add debug event listeners to file input
+    const fileInput = fileInputRef.current;
+    if (fileInput) {
+      const clickHandler = () => {
+        console.log('File input clicked via event listener');
+      };
+      
+      const changeHandler = (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        console.log('File input changed via event listener, files:', target.files?.length);
+      };
+      
+      const cancelHandler = () => {
+        console.log('File dialog cancelled');
+      };
+      
+      fileInput.addEventListener('click', clickHandler);
+      fileInput.addEventListener('change', changeHandler);
+      fileInput.addEventListener('cancel', cancelHandler);
+      
+      return () => {
+        fileInput.removeEventListener('click', clickHandler);
+        fileInput.removeEventListener('change', changeHandler);
+        fileInput.removeEventListener('cancel', cancelHandler);
+      };
+    }
+  }, []);
+
   const handleFileSelect = (file: File) => {
+    console.log('File selected:', file.name, file.type, file.size);
     const validation = validateFile(file);
+    console.log('Validation result:', validation);
+    
     if (!validation.isValid) {
       const errorMessage: Message = {
         id: Date.now().toString(),
@@ -70,17 +153,98 @@ export const UploadPage: React.FC = () => {
       return;
     }
     
+    console.log('Setting selected file:', file);
     setSelectedFile(file);
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🎯 React onChange triggered for file input');
+    console.log('Files from React event:', e.target.files);
+    console.log('Files length from React event:', e.target.files?.length);
+    
+    // Prevent any default behavior
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (e.target.files && e.target.files[0]) {
-      handleFileSelect(e.target.files[0]);
+      const file = e.target.files[0];
+      console.log('✅ File found via React:', file.name, file.type, file.size);
+      handleFileSelect(file);
+    } else {
+      console.log('❌ No file selected via React or files array is empty');
     }
+    
+    // Don't reset immediately to allow debugging
+    setTimeout(() => {
+      e.target.value = '';
+    }, 1000);
   };
 
-  const handleFileUpload = () => {
-    fileInputRef.current?.click();
+  const handleFileUpload = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('🔵 File upload button clicked');
+    console.log('🔍 File input ref:', fileInputRef.current);
+    
+    // Always use programmatic approach for reliability
+    console.log('🚀 Creating programmatic file input');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.jpg,.jpeg,.png';
+    input.style.display = 'none';
+    
+    input.onchange = (event) => {
+      const target = event.target as HTMLInputElement;
+      console.log('📁 Programmatic file input changed');
+      console.log('📂 Files count:', target.files?.length);
+      if (target.files && target.files[0]) {
+        const file = target.files[0];
+        console.log('✅ File selected:', file.name, file.type, file.size);
+        handleFileSelect(file);
+      } else {
+        console.log('❌ No file selected');
+      }
+      
+      // Clean up
+      try {
+        if (document.body.contains(input)) {
+          document.body.removeChild(input);
+        }
+      } catch (err) {
+        console.log('Input cleanup error (safe to ignore):', err);
+      }
+    };
+    
+    input.oncancel = () => {
+      console.log('🚫 File dialog cancelled');
+      try {
+        if (document.body.contains(input)) {
+          document.body.removeChild(input);
+        }
+      } catch (err) {
+        console.log('Input cleanup error (safe to ignore):', err);
+      }
+    };
+    
+    document.body.appendChild(input);
+    console.log('📤 Triggering file dialog');
+    input.click();
+  }, []);
+
+  const toggleSpeechRecognition = () => {
+    if (!speechSupported) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+      } catch (error) {
+        console.error('Error starting speech recognition:', error);
+      }
+    }
   };
 
   const handleSendMessage = async () => {
@@ -257,12 +421,6 @@ export const UploadPage: React.FC = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
 
   const removeFile = () => {
     setSelectedFile(null);
@@ -290,9 +448,9 @@ export const UploadPage: React.FC = () => {
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Medical Bill Assistant</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t('medicalBillAssistant')}</h1>
               <p className="text-gray-600 text-sm">
-                Upload bills and get instant analysis
+                {t('uploadBillsInstant')}
               </p>
             </div>
             <button
@@ -300,30 +458,30 @@ export const UploadPage: React.FC = () => {
               className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100"
             >
               <Settings size={16} />
-              <span>Settings</span>
+              <span>{t('settings')}</span>
             </button>
           </div>
           
           {showSettings && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium text-gray-900 mb-4">Analysis Settings</h3>
+              <h3 className="font-medium text-gray-900 mb-4">{t('analysisSettings')}</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Language
+                    {t('language')}
                   </label>
                   <select
                     value={settings.language}
                     onChange={(e) => setSettings({...settings, language: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="english">English</option>
-                    <option value="hindi">Hindi</option>
+                    <option value="english">{t('english')}</option>
+                    <option value="hindi">{t('hindi')}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State
+                    {t('state')}
                   </label>
                   <select
                     value={settings.stateCode}
@@ -339,17 +497,17 @@ export const UploadPage: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Insurance Type
+                    {t('insuranceType')}
                   </label>
                   <select
                     value={settings.insuranceType}
                     onChange={(e) => setSettings({...settings, insuranceType: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="general">General</option>
+                    <option value="general">{t('general')}</option>
                     <option value="cghs">CGHS</option>
                     <option value="esi">ESI</option>
-                    <option value="private">Private</option>
+                    <option value="private">{t('private')}</option>
                   </select>
                 </div>
               </div>
@@ -425,6 +583,7 @@ export const UploadPage: React.FC = () => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={removeFile}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -438,21 +597,44 @@ export const UploadPage: React.FC = () => {
           <div className="py-4">
             <div className="flex items-end space-x-3">
               <button
+                type="button"
                 onClick={handleFileUpload}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors flex-shrink-0"
+                style={{ height: '50px' }}
+                title="Upload file"
               >
                 <Paperclip size={20} />
               </button>
+              {speechSupported && (
+                <button
+                  type="button"
+                  onClick={toggleSpeechRecognition}
+                  className={`p-3 rounded-xl transition-colors flex-shrink-0 ${
+                    isListening 
+                      ? 'bg-red-100 text-red-600 hover:bg-red-200' 
+                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  }`}
+                  style={{ height: '50px' }}
+                  title={isListening ? 'Stop recording' : 'Start voice input'}
+                >
+                  {isListening ? <MicOff size={20} /> : <Mic size={20} />}
+                </button>
+              )}
               <div className="flex-1">
                 <textarea
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Message Medical Bill Assistant..."
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  placeholder={t('messagePlaceholder')}
                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none bg-white"
                   rows={1}
                   style={{
-                    minHeight: '44px',
+                    minHeight: '50px',
                     maxHeight: '120px',
                     height: 'auto'
                   }}
@@ -464,26 +646,30 @@ export const UploadPage: React.FC = () => {
                 />
               </div>
               <button
+                type="button"
                 onClick={handleSendMessage}
                 disabled={!inputText.trim() && !selectedFile}
-                className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                style={{ height: '50px' }}
+                title="Send message"
               >
                 <Send size={16} />
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center">
-              Supported files: PDF, JPEG, PNG (max 10MB) • Press Enter to send
+              {t('supportedFiles')}
             </p>
           </div>
-        </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept=".pdf,.jpg,.jpeg,.png"
-          onChange={handleFileInputChange}
-        />
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            style={{ display: 'none' }}
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={handleFileInputChange}
+          />
+        </div>
       </div>
     </div>
   );

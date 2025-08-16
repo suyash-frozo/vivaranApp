@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, Upload } from 'lucide-react';
+import { Menu, X, User, LogOut, Upload, Globe } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export const Navbar: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { currentUser, logout } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -32,14 +34,36 @@ export const Navbar: React.FC = () => {
 
           <div className="hidden md:flex items-center space-x-6">
             <Link to="/" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Home
+              {t('home')}
             </Link>
-            <Link to="#features" className="text-gray-700 hover:text-blue-600 transition-colors">
-              Features
+            <Link to="/features" className="text-gray-700 hover:text-blue-600 transition-colors">
+              {t('features')}
             </Link>
-            <Link to="#about" className="text-gray-700 hover:text-blue-600 transition-colors">
-              About
+            <Link to="/about" className="text-gray-700 hover:text-blue-600 transition-colors">
+              {t('about')}
             </Link>
+            
+            {/* Language Switcher */}
+            <div className="relative group">
+              <button className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 transition-colors">
+                <Globe size={16} />
+                <span>{language === 'en' ? 'EN' : 'हि'}</span>
+              </button>
+              <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                <button
+                  onClick={() => setLanguage('en')}
+                  className={`w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 ${language === 'en' ? 'bg-blue-50 text-blue-600' : ''}`}
+                >
+                  English
+                </button>
+                <button
+                  onClick={() => setLanguage('hi')}
+                  className={`w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 ${language === 'hi' ? 'bg-blue-50 text-blue-600' : ''}`}
+                >
+                  हिंदी
+                </button>
+              </div>
+            </div>
             
             {currentUser ? (
               <div className="flex items-center space-x-4">
@@ -47,14 +71,14 @@ export const Navbar: React.FC = () => {
                   to="/dashboard"
                   className="text-gray-700 hover:text-blue-600 transition-colors"
                 >
-                  Dashboard
+                  {t('dashboard')}
                 </Link>
                 <Link
                   to="/upload"
                   className="flex items-center space-x-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Upload size={16} />
-                  <span>Upload</span>
+                  <span>{t('upload')}</span>
                 </Link>
                 <div className="relative group">
                   <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors">
@@ -67,7 +91,7 @@ export const Navbar: React.FC = () => {
                       className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
                     >
                       <LogOut size={16} />
-                      <span>Logout</span>
+                      <span>{t('logout')}</span>
                     </button>
                   </div>
                 </div>
@@ -78,7 +102,7 @@ export const Navbar: React.FC = () => {
                   to="/login"
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Sign In
+                  {t('signIn')}
                 </Link>
               </div>
             )}
@@ -102,22 +126,37 @@ export const Navbar: React.FC = () => {
                 className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Home
+                {t('home')}
               </Link>
               <Link
-                to="#features"
+                to="/features"
                 className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Features
+                {t('features')}
               </Link>
               <Link
-                to="#about"
+                to="/about"
                 className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
-                About
+                {t('about')}
               </Link>
+              
+              {/* Mobile Language Switcher */}
+              <div className="px-3 py-2">
+                <div className="flex items-center space-x-2">
+                  <Globe size={16} className="text-gray-500" />
+                  <select
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value as 'en' | 'hi')}
+                    className="text-gray-700 bg-transparent border-none focus:outline-none"
+                  >
+                    <option value="en">English</option>
+                    <option value="hi">हिंदी</option>
+                  </select>
+                </div>
+              </div>
               
               {currentUser ? (
                 <>
@@ -126,14 +165,14 @@ export const Navbar: React.FC = () => {
                     className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Dashboard
+                    {t('dashboard')}
                   </Link>
                   <Link
                     to="/upload"
                     className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Upload Bill
+                    {t('uploadBill')}
                   </Link>
                   <button
                     onClick={() => {
@@ -142,7 +181,7 @@ export const Navbar: React.FC = () => {
                     }}
                     className="block w-full text-left px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                   >
-                    Logout
+                    {t('logout')}
                   </button>
                 </>
               ) : (
@@ -152,7 +191,7 @@ export const Navbar: React.FC = () => {
                     className="block px-3 py-2 text-gray-700 hover:text-blue-600 transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Sign In
+                    {t('signIn')}
                   </Link>
                 </>
               )}

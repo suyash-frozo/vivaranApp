@@ -32,7 +32,7 @@ export const LandingPage: React.FC = () => {
                 <ArrowRight size={20} />
               </Link>
               <Link
-                to="#features"
+                to="/tutorial"
                 className="border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors"
               >
                 Learn More

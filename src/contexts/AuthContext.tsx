@@ -24,9 +24,18 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<any>(null);
 
-  const checkAuthStatus = async () => {
+  const checkAuthStatus = async (force = false) => {
+    // If user is already authenticated and not forced, skip API call
+    if (!force && currentUser && session) {
+      console.log('Using cached auth status - user already authenticated');
+      setLoading(false);
+      return true;
+    }
+    
     try {
+      console.log('Making auth API call - force:', force);
       setLoading(true);
       const response = await supabaseAuthService.getCurrentUser();
       
@@ -45,6 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             last_login: response.user.last_login,
           };
           setCurrentUser(user);
+          setSession(response);
           return true;
         } else {
           // Success but no user data - still treat as successful login
@@ -57,15 +67,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             provider: 'oauth'
           };
           setCurrentUser(basicUser);
+          setSession(response);
           return true;
         }
       } else {
         setCurrentUser(null);
+        setSession(null);
         return false;
       }
     } catch (error) {
       console.error('Auth check failed:', error);
       setCurrentUser(null);
+      setSession(null);
       return false;
     } finally {
       setLoading(false);
@@ -103,19 +116,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     checkAuthStatus();
     
-    // Check auth status when user comes back to the app
+    // Only check auth status when user comes back after being away for a while
+    let wasAway = false;
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (document.hidden) {
+        wasAway = true;
+      } else if (wasAway) {
+        // Only check if user was actually away
+        console.log('User returned from being away, checking auth');
+        wasAway = false;
         checkAuthStatus();
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', checkAuthStatus);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', checkAuthStatus);
     };
   }, []);
 
