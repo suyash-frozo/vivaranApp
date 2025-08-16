@@ -10,7 +10,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Mic,
-  Globe,
   Clock,
   DollarSign
 } from 'lucide-react';
