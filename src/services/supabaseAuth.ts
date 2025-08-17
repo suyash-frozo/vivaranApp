@@ -22,7 +22,6 @@ export interface ProvidersResponse {
   providers: string[];
   login_urls: {
     google: string;
-    github: string;
   };
 }
 
@@ -83,9 +82,6 @@ export const supabaseAuthService = {
     window.location.href = `${API_BASE}/auth/supabase/login/google`;
   },
 
-  loginWithGithub(): void {
-    window.location.href = `${API_BASE}/auth/supabase/login/github`;
-  },
 
   async getProviders(): Promise<ProvidersResponse | null> {
     try {

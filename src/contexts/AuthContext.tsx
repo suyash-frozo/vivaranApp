@@ -5,7 +5,6 @@ import { User } from '../types';
 interface AuthContextType {
   currentUser: User | null;
   loginWithGoogle: () => void;
-  loginWithGithub: () => void;
   logout: () => Promise<void>;
   loading: boolean;
   checkAuthStatus: () => Promise<boolean>;
@@ -89,9 +88,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabaseAuthService.loginWithGoogle();
   };
 
-  const loginWithGithub = () => {
-    supabaseAuthService.loginWithGithub();
-  };
 
   const logout = async () => {
     const response = await supabaseAuthService.logout();
@@ -139,7 +135,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     currentUser,
     loginWithGoogle,
-    loginWithGithub,
     logout,
     loading,
     checkAuthStatus,

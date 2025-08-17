@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Github } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { currentUser, loginWithGoogle, loginWithGithub, checkAuthStatus } = useAuth();
+  const { currentUser, loginWithGoogle, checkAuthStatus } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,24 +39,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleGithubLogin = () => {
-    try {
-      setLoading(true);
-      // Store that we're attempting OAuth login
-      localStorage.setItem('vivaran-oauth-login', 'true');
-      localStorage.setItem('vivaran-login-timestamp', Date.now().toString());
-      
-      console.log('Starting GitHub OAuth...');
-      
-      // Use the auth service which uses environment variables
-      loginWithGithub();
-      
-    } catch (err) {
-      setError('Failed to initiate GitHub login');
-      setLoading(false);
-      console.error('OAuth initiation error:', err);
-    }
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -71,7 +53,7 @@ export const LoginPage: React.FC = () => {
             Welcome back
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in with your Google or GitHub account to continue
+            Sign in with your Google account to continue
           </p>
         </div>
 
@@ -104,20 +86,6 @@ export const LoginPage: React.FC = () => {
               )}
             </button>
 
-            <button
-              onClick={handleGithubLogin}
-              disabled={loading}
-              className="group relative w-full flex justify-center items-center py-3 px-4 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-gray-700"></div>
-              ) : (
-                <>
-                  <Github className="w-5 h-5 mr-3" />
-                  Continue with GitHub
-                </>
-              )}
-            </button>
           </div>
         </div>
 

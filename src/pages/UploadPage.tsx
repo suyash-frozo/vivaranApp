@@ -57,6 +57,7 @@ export const UploadPage: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const manualStopRef = useRef<boolean>(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -72,23 +73,43 @@ export const UploadPage: React.FC = () => {
     if (SpeechRecognition) {
       setSpeechSupported(true);
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = language === 'hi' ? 'hi-IN' : 'en-US';
 
       recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInputText(prev => prev + ' ' + transcript);
-        setIsListening(false);
+        let finalTranscript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript;
+          }
+        }
+        if (finalTranscript) {
+          setInputText(prev => prev + (prev ? ' ' : '') + finalTranscript);
+        }
       };
 
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
-        setIsListening(false);
+        if (event.error === 'network' || event.error === 'not-allowed') {
+          setIsListening(false);
+        }
       };
 
       recognitionRef.current.onend = () => {
-        setIsListening(false);
+        // Only restart if not manually stopped by user
+        if (isListening && !manualStopRef.current) {
+          try {
+            recognitionRef.current?.start();
+          } catch (error) {
+            console.error('Error restarting speech recognition:', error);
+            setIsListening(false);
+          }
+        } else if (manualStopRef.current) {
+          manualStopRef.current = false;
+          setIsListening(false);
+        }
       };
     }
   }, []);
@@ -235,9 +256,10 @@ export const UploadPage: React.FC = () => {
     if (!speechSupported) return;
 
     if (isListening) {
+      manualStopRef.current = true;
       recognitionRef.current?.stop();
-      setIsListening(false);
     } else {
+      manualStopRef.current = false;
       try {
         recognitionRef.current?.start();
         setIsListening(true);
@@ -635,19 +657,30 @@ export const UploadPage: React.FC = () => {
                 <Paperclip size={20} />
               </button>
               {speechSupported && (
-                <button
-                  type="button"
-                  onClick={toggleSpeechRecognition}
-                  className={`p-3 rounded-xl transition-colors flex-shrink-0 ${
-                    isListening 
-                      ? 'bg-red-100 text-red-600 hover:bg-red-200' 
-                      : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                  }`}
-                  style={{ height: '50px' }}
-                  title={isListening ? 'Stop recording' : 'Start voice input'}
-                >
-                  {isListening ? <MicOff size={20} /> : <Mic size={20} />}
-                </button>
+                <div className="flex items-center flex-shrink-0" style={{ height: '50px' }}>
+                  <div 
+                    className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-300 cursor-pointer ${
+                      isListening ? 'bg-red-500' : 'bg-gray-300'
+                    }`}
+                    onClick={toggleSpeechRecognition}
+                    title={isListening ? 'Stop voice input' : 'Start voice input'}
+                  >
+                    <span
+                      className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform duration-300 ${
+                        isListening ? 'translate-x-7' : 'translate-x-1'
+                      }`}
+                    />
+                    <div className={`absolute inset-0 flex items-center transition-opacity duration-300 ${
+                      isListening ? 'justify-start pl-1' : 'justify-end pr-1'
+                    }`}>
+                      {isListening ? (
+                        <Mic className="text-white" size={14} />
+                      ) : (
+                        <MicOff className="text-gray-600" size={14} />
+                      )}
+                    </div>
+                  </div>
+                </div>
               )}
               <div className="flex-1">
                 <textarea
