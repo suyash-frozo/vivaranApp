@@ -311,80 +311,109 @@ export const UploadPage: React.FC = () => {
           inputText || 'Analyze this medical document'
         );
         
-        // Parse the actual API response structure based on the provided JSON
-        let verdict = 'No verdict available';
-        let overcharge = 0;
-        let confidence = 0;
-        let totalBillAmount = 0;
-        let recommendations = [];
-        let message = '';
-        let aiNotes = '';
-        let lineItems = [];
-        let queryResponse = '';
+        // Extract comprehensive data from API response
+        const finalResult = result.final_result?.data || result.processing_stages?.domain_analysis?.result?.domain_result || {};
+        const ocrResult = result.processing_stages?.ocr_extraction?.result || {};
+        const processingStats = result.final_result?.metadata?.processing_stats || {};
         
-        // The actual structure has data nested in processing_stages.domain_analysis.result.domain_result
-        if (result.processing_stages?.domain_analysis?.result?.domain_result) {
-          const domainResult = result.processing_stages.domain_analysis.result.domain_result;
-          verdict = domainResult.verdict || verdict;
-          overcharge = domainResult.total_overcharge || overcharge;
-          confidence = domainResult.confidence_score || confidence;
-          totalBillAmount = domainResult.total_bill_amount || 0;
-          recommendations = domainResult.recommendations || [];
-          message = domainResult.message || '';
-          aiNotes = domainResult.ai_analysis_notes || '';
-          lineItems = domainResult.line_items || [];
+        // Extract document metadata from OCR text
+        const rawText = ocrResult.raw_text || '';
+        const extractDocumentInfo = (text: string) => {
+          const invoiceMatch = text.match(/Invoice No\.?\s*:?\s*([A-Z0-9\-]+)/i);
+          const dateMatch = text.match(/Date\s*:?\s*(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/i);
+          const vendorMatch = text.match(/^([A-Z\s&]+(?:CORPORATION|COMPANY|LTD|LIMITED|PHARMACY|MEDICAL|HOSPITAL))/im);
+          
+          return {
+            invoiceNo: invoiceMatch?.[1] || 'N/A',
+            date: dateMatch?.[1] || 'N/A',
+            vendor: vendorMatch?.[1]?.trim() || 'N/A'
+          };
+        };
+        
+        const docInfo = extractDocumentInfo(rawText);
+        
+        // Build comprehensive response
+        let responseContent = `# 📋 Medical Bill Analysis Complete\n\n`;
+        
+        // Document Information
+        responseContent += `## 📄 Document Information\n`;
+        responseContent += `**Invoice Number:** ${docInfo.invoiceNo}\n`;
+        responseContent += `**Date:** ${docInfo.date}\n`;
+        responseContent += `**Vendor:** ${docInfo.vendor}\n`;
+        responseContent += `**Document Type:** ${result.document_type || 'Medical Bill'}\n\n`;
+        
+        // Analysis Summary
+        const verdict = finalResult.verdict || 'unknown';
+        const confidence = (finalResult.confidence_score || 0) * 100;
+        const totalAmount = finalResult.total_bill_amount || 0;
+        const overcharge = finalResult.total_overcharge || 0;
+        
+        responseContent += `## 🔍 Analysis Summary\n`;
+        responseContent += `**Overall Verdict:** ${verdict.toUpperCase()} ${verdict === 'ok' ? '✅' : verdict === 'suspicious' ? '⚠️' : '❓'}\n`;
+        responseContent += `**Total Bill Amount:** ₹${totalAmount.toLocaleString()}\n`;
+        responseContent += `**Estimated Overcharge:** ₹${overcharge} ${overcharge > 0 ? '⚠️' : '✅'}\n`;
+        responseContent += `**Analysis Confidence:** ${confidence.toFixed(1)}%\n`;
+        if (finalResult.overcharge_percentage) {
+          responseContent += `**Overcharge Percentage:** ${finalResult.overcharge_percentage}%\n`;
         }
-        // Check for final_result format (also present in this response)
-        else if (result.final_result?.domain_analysis) {
-          const domainAnalysis = result.final_result.domain_analysis;
-          verdict = domainAnalysis.verdict || verdict;
-          overcharge = domainAnalysis.total_overcharge || overcharge;
-          confidence = domainAnalysis.confidence_score || confidence;
-          totalBillAmount = domainAnalysis.total_bill_amount || 0;
-          recommendations = domainAnalysis.recommendations || [];
-          message = domainAnalysis.message || '';
-          aiNotes = domainAnalysis.ai_analysis_notes || '';
-          lineItems = domainAnalysis.line_items || [];
-        }
-        // Check for direct final_result format
-        else if (result.final_result) {
-          verdict = result.final_result.verdict || verdict;
-          overcharge = result.final_result.total_overcharge || overcharge;
-          confidence = result.final_result.confidence_score || confidence;
-        }
+        responseContent += `\n`;
         
-        // Get query response if available
-        queryResponse = result.query_response || '';
-        
-        let responseContent = `Analysis Complete!\n\n**Verdict:** ${verdict.toUpperCase()}\n\n**Total Bill Amount:** ₹${totalBillAmount.toLocaleString()}\n\n**Total Overcharge:** ₹${overcharge}\n\n**Confidence Score:** ${confidence * 100}%`;
-        
-        if (lineItems && lineItems.length > 0) {
-          responseContent += `\n\n**Line Items:**`;
+        // Line Items Analysis
+        const lineItems = finalResult.line_items || [];
+        if (lineItems.length > 0) {
+          responseContent += `## 💊 Items Breakdown (${lineItems.length} items)\n`;
           lineItems.forEach((item: any, index: number) => {
-            responseContent += `\n${index + 1}. ${item.description} - ₹${item.amount} (Qty: ${item.quantity})${item.is_suspicious ? ' ⚠️ Suspicious' : ''}`;
+            const suspiciousFlag = item.is_suspicious ? ' ⚠️' : ' ✅';
+            const unitPrice = item.quantity > 0 ? (item.amount / item.quantity).toFixed(2) : item.amount;
+            responseContent += `**${index + 1}. ${item.description}**${suspiciousFlag}\n`;
+            responseContent += `   • Quantity: ${item.quantity} | Unit Price: ₹${unitPrice} | Total: ₹${item.amount}\n`;
+            if (item.reason && item.is_suspicious) {
+              responseContent += `   • ⚠️ Concern: ${item.reason}\n`;
+            }
+            responseContent += `\n`;
           });
         }
         
+        // Red Flags & Warnings
+        const redFlags = finalResult.red_flags || [];
+        if (redFlags.length > 0) {
+          responseContent += `## 🚨 Red Flags Detected\n`;
+          redFlags.forEach((flag: string, index: number) => {
+            responseContent += `${index + 1}. ⚠️ ${flag}\n`;
+          });
+          responseContent += `\n`;
+        }
+        
+        // AI Analysis Notes
+        if (finalResult.ai_analysis_notes) {
+          responseContent += `## 🤖 AI Analysis Insights\n`;
+          responseContent += `${finalResult.ai_analysis_notes}\n\n`;
+        }
+        
+        // Recommendations
+        const recommendations = finalResult.recommendations || [];
         if (recommendations.length > 0) {
-          responseContent += `\n\n**Recommendations:**\n${recommendations.map((rec: any) => `• ${rec}`).join('\n')}`;
+          responseContent += `## 💡 Recommendations\n`;
+          recommendations.forEach((rec: string, index: number) => {
+            responseContent += `${index + 1}. 📝 ${rec}\n`;
+          });
+          responseContent += `\n`;
         }
         
-        if (aiNotes) {
-          responseContent += `\n\n**AI Analysis:** ${aiNotes}`;
+        // Technical Details (Expandable)
+        responseContent += `## 📊 Processing Details\n`;
+        responseContent += `**Analysis Method:** ${finalResult.analysis_method || 'Standard'}\n`;
+        if (ocrResult.processing_stats) {
+          const ocrStats = ocrResult.processing_stats;
+          responseContent += `**OCR Confidence:** ${(ocrStats.ocr_confidence * 100).toFixed(1)}%\n`;
+          responseContent += `**Pages Processed:** ${ocrStats.pages_processed || 1}\n`;
+          responseContent += `**Processing Time:** ${(processingStats.total_processing_time_ms / 1000).toFixed(1)}s\n`;
         }
+        responseContent += `**Document ID:** ${result.doc_id}\n`;
         
-        if (queryResponse) {
-          responseContent += `\n\n**Detailed Analysis:** ${queryResponse}`;
-        }
-        
-        if (message) {
-          responseContent += `\n\n**System Notes:** ${message}`;
-        }
-        
-        responseContent += `\n\n**Status:** ${result.success ? '✅ Success' : '❌ Failed'}`;
-        
-        if (result.doc_id) {
-          responseContent += `\n**Document ID:** ${result.doc_id}`;
+        // Add query response if available
+        if (result.query_response) {
+          responseContent += `\n## 📝 Additional Analysis\n${result.query_response}\n`;
         }
         
         const botResponse: Message = {
